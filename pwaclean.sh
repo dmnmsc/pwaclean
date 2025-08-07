@@ -1,5 +1,24 @@
 #!/bin/bash
+# Relaunching in terminal if not running interactively
+if [[ ! -t 1 ]]; then
+    if [[ $XDG_CURRENT_DESKTOP == *KDE* ]]; then
+        TERMINAL_EMULATOR=$(command -v konsole)
+    elif [[ $XDG_CURRENT_DESKTOP == *GNOME* ]]; then
+        TERMINAL_EMULATOR=$(command -v gnome-terminal)
+    else
+        TERMINAL_EMULATOR=$(command -v x-terminal-emulator || command -v gnome-terminal || command -v konsole || command -v xfce4-terminal || command -v xterm)
+    fi
 
+    if [ -n "$TERMINAL_EMULATOR" ]; then
+        "$TERMINAL_EMULATOR" -e "$0"
+        exit
+    else
+        echo "❌ Could not find a terminal emulator to relaunch."
+        exit 1
+    fi
+fi
+
+# Define paths for profiles and config
 BASE_DIR="$HOME/.local/share/firefoxpwa/profiles"
 CONFIG_FILE="$HOME/.local/share/firefoxpwa/config.json"
 
