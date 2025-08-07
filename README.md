@@ -78,7 +78,7 @@ When prompted:
 
 ## 🛠 Example Output
 ```bash
-$ ./clean-firefoxpwa-cache.sh
+$ ./pwaclean.sh
 
 🔍 Scanning FirefoxPWA cache...
 
