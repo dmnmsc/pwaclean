@@ -13,7 +13,11 @@
 - Deletes the following folders:
   - `cache2`
   - `startupCache`
-  - `offlineCache` folders
+  - `offlineCache`
+  - `jumpListCache`
+  - `minidumps`
+  - `saved-telemetry-pings`
+  - `datareporting`
 
 ---
 
@@ -21,7 +25,7 @@
 
 - Linux or WSL (Bash required)
 - [`jq`](https://stedolan.github.io/jq/) for JSON parsing
-- `du`, `awk`, and `numfmt` (usually preinstalled on most distros)
+- Standard Unix utilities: `du`, `awk`, and `numfmt` (usually preinstalled on most distros)
 - FirefoxPWA with default profile and config paths:
   - `~/.local/share/firefoxpwa/profiles`
   - `~/.local/share/firefoxpwa/config.json`
