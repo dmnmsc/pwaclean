@@ -82,8 +82,8 @@ $ ./pwaclean.sh
 
 🔍 Scanning FirefoxPWA cache...
 
-1) YouTube (K5G74N): 124M — 1 apps
-2) Twitter (F4D21P): 98M — 1 apps
+1) YouTube (K5G74N): 124M
+2) Twitter (F4D21P): 98M
 3) Work Tools (A9Q31T): 300M — 3 apps
     - Slack
     - Trello
