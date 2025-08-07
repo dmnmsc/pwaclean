@@ -1,5 +1,6 @@
 #!/bin/bash
-# Relaunching in terminal if not running interactively
+
+# Relaunch in terminal if not running interactively
 if [[ ! -t 1 ]]; then
     if [[ $XDG_CURRENT_DESKTOP == *KDE* ]]; then
         TERMINAL_EMULATOR=$(command -v konsole)
@@ -18,11 +19,14 @@ if [[ ! -t 1 ]]; then
     fi
 fi
 
-# Define paths for profiles and config
+# Paths to profiles and config
 BASE_DIR="$HOME/.local/share/firefoxpwa/profiles"
 CONFIG_FILE="$HOME/.local/share/firefoxpwa/config.json"
 
-# Check existence
+# Folders considered safe to clear inside each profile
+readonly CLEAN_DIRS=("cache2" "startupCache" "offlineCache" "jumpListCache" "minidumps" "saved-telemetry-pings" "datareporting")
+
+# Verify required files and tools
 if [ ! -d "$BASE_DIR" ]; then
     echo "❌ Profile directory not found: $BASE_DIR"
     exit 1
@@ -38,10 +42,10 @@ if ! command -v jq &> /dev/null; then
     exit 1
 fi
 
-echo "🔍 Scanning FirefoxPWA cache..."
+echo "🔍 Scanning FirefoxPWA caches..."
 echo
 
-# Build profile list with name, size, and apps
+# Collect profile information
 declare -A PROFILE_IDS
 declare -A PROFILE_NAMES
 declare -A PROFILE_SIZES
@@ -53,7 +57,17 @@ for PROFILE in "$BASE_DIR"/*; do
     if [ -d "$PROFILE" ]; then
         PROFILE_ID=$(basename "$PROFILE")
         NAME=$(jq -r --arg ulid "$PROFILE_ID" '.profiles[$ulid].name // "(unnamed)"' "$CONFIG_FILE")
-        SIZE=$(du -sb "$PROFILE"/cache2 "$PROFILE"/startupCache "$PROFILE"/offlineCache 2>/dev/null | awk '{sum += $1} END {print sum}')
+
+        # Calculate total size of all CLEAN_DIRS in the profile
+        SIZE=0
+        for DIR_NAME in "${CLEAN_DIRS[@]}"; do
+            DIR="$PROFILE/$DIR_NAME"
+            if [ -d "$DIR" ]; then
+                DIR_SIZE=$(du -sb "$DIR" 2>/dev/null | awk '{print $1}')
+                SIZE=$((SIZE + DIR_SIZE))
+            fi
+        done
+
         HUMAN_SIZE=$(numfmt --to=iec $SIZE)
 
         # Get associated app IDs
@@ -64,8 +78,9 @@ for PROFILE in "$BASE_DIR"/*; do
         PROFILE_NAMES[$INDEX]="$NAME"
         PROFILE_SIZES[$INDEX]="$SIZE"
 
+        echo "$INDEX) $NAME ($PROFILE_ID): $HUMAN_SIZE"
+
         if [ "$APP_COUNT" -gt 1 ]; then
-            echo "$INDEX) $NAME ($PROFILE_ID): $HUMAN_SIZE — $APP_COUNT apps"
             for APP_ID in $APP_IDS; do
                 APP_NAME=$(jq -r --arg id "$APP_ID" '
                     .sites[$id].manifest.name //
@@ -73,8 +88,6 @@ for PROFILE in "$BASE_DIR"/*; do
                     "(unnamed)"' "$CONFIG_FILE")
                 echo "    - $APP_NAME"
             done
-        else
-            echo "$INDEX) $NAME ($PROFILE_ID): $HUMAN_SIZE"
         fi
 
         TOTAL_SIZE=$((TOTAL_SIZE + SIZE))
@@ -84,36 +97,42 @@ done
 
 echo
 HUMAN_TOTAL=$(numfmt --to=iec $TOTAL_SIZE)
-echo "📦 Total cache that can be cleared: $HUMAN_TOTAL"
+echo "📦 Total removable cache: $HUMAN_TOTAL"
 echo
 
-# Prompt user for selection
+# Ask user to select profiles
 read -p "Enter the numbers of the profiles to clean (e.g. 1 3 5, 'a' for all, 'n' for none): " -a SELECTION
 
 echo
 echo "🧹 Cleaning selected profile caches..."
+echo
 
 CLEARED=0
 
-# If user selects 'n' or 'N', cancel
-if [[ "${SELECTION[0]}" =~ ^(n|N)$ ]]; then
-    echo "🚫 No profiles selected. No cache was cleared."
-    exit 0
-fi
+# Clean a profile's cache folders
+clean_profile() {
+    local PROFILE_PATH="$BASE_DIR/$1"
+    for DIR_NAME in "${CLEAN_DIRS[@]}"; do
+        DIR="$PROFILE_PATH/$DIR_NAME"
+        if [ -d "$DIR" ]; then
+            rm -rf "$DIR"/*
+        fi
+    done
+}
 
-# If user selects 'a' or '*', clean all
+# Process selection
 if [[ "${SELECTION[0]}" =~ ^(a|\*)$ ]]; then
     for NUM in "${!PROFILE_IDS[@]}"; do
         PROFILE_ID="${PROFILE_IDS[$NUM]}"
         NAME="${PROFILE_NAMES[$NUM]}"
         SIZE="${PROFILE_SIZES[$NUM]}"
-
-        rm -rf "$BASE_DIR/$PROFILE_ID/cache2"/*
-        rm -rf "$BASE_DIR/$PROFILE_ID/startupCache"/*
-        rm -rf "$BASE_DIR/$PROFILE_ID/offlineCache"/*
+        clean_profile "$PROFILE_ID"
         CLEARED=$((CLEARED + SIZE))
         echo "✔ $NAME cleaned"
     done
+elif [[ "${SELECTION[0]}" =~ ^(n|N)$ ]]; then
+    echo "🚫 No profiles selected. Nothing was cleaned."
+    exit 0
 else
     for NUM in "${SELECTION[@]}"; do
         PROFILE_ID="${PROFILE_IDS[$NUM]}"
@@ -121,9 +140,7 @@ else
         SIZE="${PROFILE_SIZES[$NUM]}"
 
         if [ -n "$PROFILE_ID" ]; then
-            rm -rf "$BASE_DIR/$PROFILE_ID/cache2"/*
-            rm -rf "$BASE_DIR/$PROFILE_ID/startupCache"/*
-            rm -rf "$BASE_DIR/$PROFILE_ID/offlineCache"/*
+            clean_profile "$PROFILE_ID"
             CLEARED=$((CLEARED + SIZE))
             echo "✔ $NAME cleaned"
         else
