@@ -11,7 +11,7 @@ if [[ ! -t 1 ]]; then
     fi
 
     if [ -n "$TERMINAL_EMULATOR" ]; then
-        "$TERMINAL_EMULATOR" -e "$0"
+        "$TERMINAL_EMULATOR" -e bash -c "$0; echo; read -n 1 -s -r -p '🔚 Press any key to close this window...'"
         exit
     else
         echo "❌ Could not find a terminal emulator to relaunch."
@@ -22,6 +22,36 @@ fi
 # Paths to profiles and config
 BASE_DIR="$HOME/.local/share/firefoxpwa/profiles"
 CONFIG_FILE="$HOME/.local/share/firefoxpwa/config.json"
+AUTO_CONFIRM=false
+CLEAN_ALL=false
+DRY_RUN=false
+
+# Parse command-line arguments to enable optional modes
+for arg in "$@"; do
+    case "$arg" in
+        --yes|-y) AUTO_CONFIRM=true ;;
+        --all|-a) CLEAN_ALL=true ;;
+        --yes-all|-ya|-ay) AUTO_CONFIRM=true; CLEAN_ALL=true ;;
+        --dry-run) DRY_RUN=true ;;
+        --help|-h)
+            echo "🧹 FirefoxPWA Cache Cleaner"
+            echo
+            echo "Usage: pwaclean [options]"
+            echo
+            echo "Options:"
+            echo "  --all, -a         Clean all profiles"
+            echo "  --yes, -y         Skip confirmation prompts"
+            echo "  --yes-all, -ya    Clean all profiles without confirmation"
+            echo "  -ay               Same as --yes-all"
+            echo "  --dry-run         Show what would be cleaned without deleting"
+            echo "  --help, -h        Show this help message"
+            echo
+            echo "If no options are provided, the script will prompt for profile selection."
+            exit 0
+            ;;
+        *) echo "⚠️ Unknown option: $arg"; exit 1 ;;
+    esac
+done
 
 # Folders considered safe to clear inside each profile
 readonly CLEAN_DIRS=("cache2" "startupCache" "offlineCache" "jumpListCache" "minidumps" "saved-telemetry-pings" "datareporting")
@@ -100,8 +130,12 @@ HUMAN_TOTAL=$(numfmt --to=iec $TOTAL_SIZE)
 echo "📦 Total removable cache: $HUMAN_TOTAL"
 echo
 
-# Ask user to select profiles
-read -p "Enter the numbers of the profiles to clean (e.g. 1 3 5, 'a' for all, 'n' for none): " -a SELECTION
+# Ask user to select profiles unless --all was passed
+if $CLEAN_ALL; then
+    SELECTION=("a")
+else
+    read -p "Enter the numbers of the profiles to clean (e.g. 1 3 5, 'a' for all, 'n' for none): " -a SELECTION
+fi
 
 echo
 echo "🧹 Cleaning selected profile caches..."
@@ -120,15 +154,44 @@ clean_profile() {
     done
 }
 
+# Confirm Clean
+confirm_clean() {
+    local NAME="$1"
+    if $AUTO_CONFIRM; then
+        return 0
+    fi
+    while true; do
+        read -p "❓ Do you want to clean '$NAME'? (Y/n): " yn
+        yn="${yn:-y}"
+        case $yn in
+            [Yy]*) return 0 ;;
+            [Nn]*) return 1 ;;
+            *) echo "⚠️ Please answer y or n." ;;
+        esac
+    done
+}
+
 # Process selection
-if [[ "${SELECTION[0]}" =~ ^(a|\*)$ ]]; then
+if $CLEAN_ALL || [[ "${SELECTION[0]}" =~ ^(a|\*)$ ]]; then
+    if ! $AUTO_CONFIRM; then
+        read -p "❓ Do you want to clean *all* profiles? (Y/n): " yn
+        yn="${yn:-y}"
+        if [[ ! "$yn" =~ ^[Yy]$ ]]; then
+            echo "🚫 Cancelled cleaning all profiles."
+            exit 0
+        fi
+    fi
     for NUM in "${!PROFILE_IDS[@]}"; do
         PROFILE_ID="${PROFILE_IDS[$NUM]}"
         NAME="${PROFILE_NAMES[$NUM]}"
         SIZE="${PROFILE_SIZES[$NUM]}"
-        clean_profile "$PROFILE_ID"
-        CLEARED=$((CLEARED + SIZE))
-        echo "✔ $NAME cleaned"
+        if $DRY_RUN; then
+            echo "🧪 Would clean: $NAME"
+        else
+            clean_profile "$PROFILE_ID"
+            CLEARED=$((CLEARED + SIZE))
+            echo "✔ $NAME cleaned"
+        fi
     done
 elif [[ "${SELECTION[0]}" =~ ^(n|N)$ ]]; then
     echo "🚫 No profiles selected. Nothing was cleaned."
@@ -140,9 +203,17 @@ else
         SIZE="${PROFILE_SIZES[$NUM]}"
 
         if [ -n "$PROFILE_ID" ]; then
-            clean_profile "$PROFILE_ID"
-            CLEARED=$((CLEARED + SIZE))
-            echo "✔ $NAME cleaned"
+            if confirm_clean "$NAME"; then
+                if $DRY_RUN; then
+                    echo "🧪 Would clean: $NAME"
+                else
+                    clean_profile "$PROFILE_ID"
+                    CLEARED=$((CLEARED + SIZE))
+                    echo "✔ $NAME cleaned"
+                fi
+            else
+                echo "⏭ Skipped: $NAME"
+            fi
         else
             echo "⚠️ Invalid selection: $NUM"
         fi
