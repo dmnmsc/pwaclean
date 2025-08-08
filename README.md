@@ -68,6 +68,18 @@ If installed globally:
 pwaclean
 ```
 
+
+You can also use command-line options for automation or scripting:
+
+| Option         | Description                                 |
+|----------------|---------------------------------------------|
+| `--all`, `-a`  | Clean all profiles                          |
+| `--yes`, `-y`  | Skip all confirmation prompts               |
+| `--yes-all`    | Clean all profiles without prompts          |
+| `-ya`, `-ay`   | Same as `--yes-all`                         |
+| `--dry-run`    | Show what would be cleaned (no deletion)    |
+| `--help`, `-h` | Show usage instructions                     |
+
 ---
 
 ## ⌨️ Input Options
@@ -110,6 +122,7 @@ Enter the numbers of the profiles to clean (e.g. 1 3 5, 'a' for all, 'n' for non
 
 - Only temporary/cache files are removed.
 - App configuration, data, and profiles remain intact.
+- When run in a GUI terminal (e.g. from a desktop launcher), the window will remain open after completion so you can review the output.
 - Use at your own risk if modifying paths.
 
 ---
