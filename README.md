@@ -122,10 +122,19 @@ Enter the numbers of the profiles to clean (e.g. 1 3 5, 'a' for all, 'n' for non
 
 ## ❗ Notes
 
-- Only temporary/cache files are removed.
-- App configuration, data, and profiles remain intact.
-- When run in a GUI terminal (e.g. from a desktop launcher), the window will remain open after completion so you can review the output.
-- Use at your own risk if modifying paths.
+- Only **temporary/cache** files are removed unless **`--empty`** is used.  
+- App configuration, data, and profiles remain intact unless explicitly removed with **`--empty`**.  
+
+> ⚠️ **IMPORTANT:**  
+> - **`--empty`** will also **modify `config.json`** to remove empty profiles.  
+> - **Do not use `--empty` unless you know what you are doing.**  
+> - You can safely clean and remove profiles using the **upstream FirefoxPWA tool** instead.  
+> - A timestamped **backup** of `config.json` is created automatically before any change.  
+
+- When run in a **GUI terminal** (e.g., from a desktop launcher), the window will remain open after completion so you can review the output.  
+- **Use at your own risk** if modifying paths or options.  
+- **AGAIN:** Do not use `--empty` unless you know what you are doing.  
+
 
 ---
 
