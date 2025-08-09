@@ -1,6 +1,12 @@
 # Changelog
 
-All notable changes between **v1** and **v2** of the FirefoxPWA Cache Cleaner script.
+## [v3] – 2025-08-09 (Efficiency-Focused)
+
+### Enhancements
+- Optimized cache size calculation using a single `find` per profile.
+- Added `--empty` / `-e` option to detect and remove empty profiles.
+- Streamlined terminal relaunch detection logic.
+- Minor prompt and output cleanup.
 
 ---
 
