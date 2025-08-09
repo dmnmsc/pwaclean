@@ -1,6 +1,7 @@
 # 🧹 PWAclean
 
-**pwaclean** is a Bash script to **scan and clean cache files** from [FirefoxPWA](https://github.com/filips123/FirefoxPWA) profiles. It helps reclaim disk space by removing unnecessary cached data associated with web apps installed via FirefoxPWA.
+**pwaclean** is a Bash script that **scans and cleans cache files** from [PWAsForFirefox (FirefoxPWA)](https://github.com/filips123/FirefoxPWA) profiles.  
+It helps reclaim disk space by removing unnecessary cached data from Progressive Web Apps installed via FirefoxPWA.
 
 ---
 
