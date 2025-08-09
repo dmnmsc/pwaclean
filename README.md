@@ -78,6 +78,7 @@ You can also use command-line options for automation or scripting:
 | `--yes-all`    | Clean all profiles without prompts          |
 | `-ya`, `-ay`   | Same as `--yes-all`                         |
 | `--dry-run`    | Show what would be cleaned (no deletion)    |
+| `--empty`, `e` | Show what would be cleaned (no deletion)    |
 | `--help`, `-h` | Show usage instructions                     |
 
 ---
