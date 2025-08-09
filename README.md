@@ -71,15 +71,15 @@ pwaclean
 
 You can also use command-line options for automation or scripting:
 
-| Option         | Description                                 |
-|----------------|---------------------------------------------|
-| `--all`, `-a`  | Clean all profiles                          |
-| `--yes`, `-y`  | Skip all confirmation prompts               |
-| `--yes-all`    | Clean all profiles without prompts          |
-| `-ya`, `-ay`   | Same as `--yes-all`                         |
-| `--dry-run`    | Show what would be cleaned (no deletion)    |
-| `--empty`, `-e`| Show what would be cleaned (no deletion)    |
-| `--help`, `-h` | Show usage instructions                     |
+| Option         | Description                                           |
+|----------------|-------------------------------------------------------|
+| `--all`, `-a`  | Clean all profiles                                    |
+| `--yes`, `-y`  | Skip all confirmation prompts                         |
+| `--yes-all`    | Clean all profiles without prompts                    |
+| `-ya`, `-ay`   | Same as `--yes-all`                                   |
+| `--dry-run`    | Show what would be cleaned (no deletion)              |
+| `--empty`, `-e`| Detect and remove empty profiles (no apps installed)  |
+| `--help`, `-h` | Show usage instructions                               |
 
 ---
 
