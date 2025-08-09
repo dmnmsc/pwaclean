@@ -87,7 +87,7 @@ if ! command -v jq &> /dev/null; then
   exit 1
 fi
 
-echo " Scanning FirefoxPWA caches..."
+echo "🔍 Scanning FirefoxPWA caches..."
 echo
 
 # Collect profile information
@@ -132,7 +132,8 @@ for PROFILE in "$BASE_DIR"/*; do
 done
 
 HUMAN_TOTAL=$(numfmt --to=iec $TOTAL_SIZE)
-echo " Total removable cache: $HUMAN_TOTAL"
+echo
+echo "📦 Total removable cache: $HUMAN_TOTAL"
 echo
 
 # Function to clean cache folders of a profile
@@ -165,7 +166,8 @@ confirm_clean() {
 
 # If --empty is specified, process empty profiles first
 if $REMOVE_EMPTY; then
-  echo " Scanning for empty profiles (without installed apps)..."
+  echo "🔍 Scanning for empty profiles (without installed apps)..."
+  echo
   EMPTY_PROFILES=()
   for i in "${!PROFILE_IDS[@]}"; do
     ID="${PROFILE_IDS[$i]}"
@@ -176,18 +178,18 @@ if $REMOVE_EMPTY; then
   done
 
   if [ ${#EMPTY_PROFILES[@]} -eq 0 ]; then
-    echo " No empty profiles found."
+    echo "❌ No empty profiles found."
   else
-    echo " Found ${#EMPTY_PROFILES[@]} empty profile(s):"
+    echo "📂 Found ${#EMPTY_PROFILES[@]} empty profile(s):"
     for idx in "${EMPTY_PROFILES[@]}"; do
       echo " - ${PROFILE_NAMES[$idx]} (${PROFILE_IDS[$idx]})"
     done
 
     if ! $CLEAN_ALL && ! $AUTO_CONFIRM; then
-      read -p " Delete these profiles? (Y/n): " yn
+      read -p "❓ Delete these profiles? (Y/n): " yn
       yn="${yn:-y}"
       if [[ ! "$yn" =~ ^[Yy]$ ]]; then
-        echo " Aborted empty profile removal."
+        echo "❌ Aborted empty profile removal."
         exit 0
       fi
     fi
@@ -196,10 +198,10 @@ if $REMOVE_EMPTY; then
       NAME="${PROFILE_NAMES[$idx]}"
       ID="${PROFILE_IDS[$idx]}"
       if $DRY_RUN; then
-        echo " Would delete profile: $NAME ($ID)"
+        echo "👀 Would delete profile: $NAME ($ID)"
       else
         rm -rf "$BASE_DIR/$ID"
-        echo " Deleted profile: $NAME ($ID)"
+        echo "✅ Deleted profile: $NAME ($ID)"
       fi
     done
   fi
@@ -214,10 +216,11 @@ if $CLEAN_ALL; then
   SELECTION=("a")
 else
   read -p "Enter the numbers of the profiles to clean (e.g. 1 3 5, 'a' for all, 'n' for none): " -a SELECTION
+  echo
 fi
 
+echo "🧹 Cleaning selected profile caches..."
 echo
-echo " Cleaning selected profile caches..."
 CLEARED=0
 
 # Process cleaning of cache based on selection
@@ -226,7 +229,7 @@ if $CLEAN_ALL || [[ "${SELECTION[0]}" =~ ^(a|\*)$ ]]; then
     read -p "❓ Do you want to clean *all* profiles? (Y/n): " yn
     yn="${yn:-y}"
     if [[ ! "$yn" =~ ^[Yy]$ ]]; then
-      echo " Cancelled cleaning all profiles."
+      echo "🚫 Cancelled cleaning all profiles."
       exit 0
     fi
   fi
@@ -235,7 +238,7 @@ if $CLEAN_ALL || [[ "${SELECTION[0]}" =~ ^(a|\*)$ ]]; then
     NAME="${PROFILE_NAMES[$NUM]}"
     SIZE="${PROFILE_SIZES[$NUM]}"
     if $DRY_RUN; then
-      echo " Would clean: $NAME"
+      echo "👀 Would clean: $NAME"
     else
       clean_profile "$PROFILE_ID"
       CLEARED=$((CLEARED + SIZE))
@@ -243,7 +246,7 @@ if $CLEAN_ALL || [[ "${SELECTION[0]}" =~ ^(a|\*)$ ]]; then
     fi
   done
 elif [[ "${SELECTION[0]}" =~ ^(n|N)$ ]]; then
-  echo " No profiles selected. Nothing was cleaned."
+  echo "🚫 No profiles selected. Nothing was cleaned."
   exit 0
 else
   for NUM in "${SELECTION[@]}"; do
@@ -253,7 +256,7 @@ else
     if [ -n "$PROFILE_ID" ]; then
       if confirm_clean "$NAME"; then
         if $DRY_RUN; then
-          echo " Would clean: $NAME"
+          echo "👀 Would clean: $NAME"
         else
           clean_profile "$PROFILE_ID"
           CLEARED=$((CLEARED + SIZE))
@@ -269,4 +272,5 @@ else
 fi
 
 HUMAN_CLEARED=$(numfmt --to=iec $CLEARED)
+echo
 echo "✅ Total cache cleared: $HUMAN_CLEARED"
