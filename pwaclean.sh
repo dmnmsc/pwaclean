@@ -140,9 +140,16 @@ declare -A PROFILE_SIZES
 INDEX=1
 TOTAL_SIZE=0
 
+# Read profiles from config.son
 for PROFILE in "$BASE_DIR"/*; do
   if [ -d "$PROFILE" ]; then
     PROFILE_ID=$(basename "$PROFILE")
+
+    # Skip DEFAULT profile
+    if [ "$PROFILE_ID" = "00000000000000000000000000" ]; then
+      continue
+    fi
+
     NAME=$(jq -r --arg ulid "$PROFILE_ID" '.profiles[$ulid].name // "(unnamed)"' "$CONFIG_FILE")
 
     # Calculate total size of cache-related directories
@@ -156,7 +163,7 @@ for PROFILE in "$BASE_DIR"/*; do
       -name "datareporting" \
     \) -exec du -sb {} + 2>/dev/null | awk '{sum += $1} END {print sum}')
 
-    HUMAN_SIZE=$(numfmt --to=iec $SIZE)
+    HUMAN_SIZE=$(numfmt --to=iec ${SIZE:-0})
 
     APP_IDS=$(jq -r --arg ulid "$PROFILE_ID" '.profiles[$ulid].sites[]?' "$CONFIG_FILE")
     APP_COUNT=$(echo "$APP_IDS" | wc -l)
