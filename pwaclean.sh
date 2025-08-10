@@ -1,14 +1,17 @@
 #!/bin/bash
 
-# Relaunch in terminal if not running interactively
+set -u
+
+# Relaunch in terminal if not interactive
 if [[ ! -t 1 ]]; then
-  if [[ $XDG_CURRENT_DESKTOP == *KDE* ]]; then
-    TERMINAL_EMULATOR=$(command -v konsole)
-  elif [[ $XDG_CURRENT_DESKTOP == *GNOME* ]]; then
-    TERMINAL_EMULATOR=$(command -v gnome-terminal)
+  if [[ "${XDG_CURRENT_DESKTOP:-}" == *KDE* ]]; then
+    TERMINAL_EMULATOR=$(command -v konsole || true)
+  elif [[ "${XDG_CURRENT_DESKTOP:-}" == *GNOME* ]]; then
+    TERMINAL_EMULATOR=$(command -v gnome-terminal || true)
   else
-    TERMINAL_EMULATOR=$(command -v x-terminal-emulator || command -v gnome-terminal || command -v konsole || command -v xfce4-terminal || command -v xterm)
+    TERMINAL_EMULATOR=$(command -v x-terminal-emulator || command -v gnome-terminal || command -v konsole || command -v xfce4-terminal || command -v xterm || true)
   fi
+
   if [ -n "$TERMINAL_EMULATOR" ]; then
     "$TERMINAL_EMULATOR" -e bash -c "$0; echo; read -n 1 -s -r -p ' Press any key to close this window...'"
     exit
@@ -18,86 +21,46 @@ if [[ ! -t 1 ]]; then
   fi
 fi
 
-# Paths to profiles and config
+# Configuration & defaults
 BASE_DIR="$HOME/.local/share/firefoxpwa/profiles"
 CONFIG_FILE="$HOME/.local/share/firefoxpwa/config.json"
 AUTO_CONFIRM=false
 CLEAN_ALL=false
 DRY_RUN=false
-REMOVE_EMPTY=false  # new flag for empty profiles
+REMOVE_EMPTY=false
 
-# Parse command-line arguments to enable optional modes
+# Directories considered safe to clear inside each profile
+readonly CLEAN_DIRS=("cache2" "startupCache" "offlineCache" "jumpListCache" "minidumps" "saved-telemetry-pings" "datareporting")
+
+# Argument parsing
 for arg in "$@"; do
   case "$arg" in
-    --yes|-y)
-      AUTO_CONFIRM=true
-      ;;
-    --all|-a)
-      CLEAN_ALL=true
-      ;;
-    --yes-all|-ya|-ay)
-      AUTO_CONFIRM=true
-      CLEAN_ALL=true
-      ;;
-    --dry-run)
-      DRY_RUN=true
-      ;;
-    --empty|-e)  # new option
-      REMOVE_EMPTY=true
-      ;;
+    --yes|-y) AUTO_CONFIRM=true ;;
+    --all|-a) CLEAN_ALL=true ;;
+    --yes-all|-ya|-ay) AUTO_CONFIRM=true; CLEAN_ALL=true ;;
+    --dry-run) DRY_RUN=true ;;
+    --empty|-e) REMOVE_EMPTY=true ;;
     --help|-h)
-      echo " FirefoxPWA Cache Cleaner"
-      echo
-      echo "Usage: pwaclean [options]"
-      echo
-      echo "Options:"
-      echo "  --all, -a        Clean all profiles"
-      echo "  --yes, -y        Skip confirmation prompts"
-      echo "  --yes-all, -ya   Clean all profiles without confirmation"
-      echo "  -ay              Same as --yes-all"
-      echo "  --dry-run        Show what would be cleaned without deleting"
-      echo "  --empty, -e      Delete empty profiles (no apps installed)"  # new option
-      echo "  --help, -h       Show this help message"
-      echo
-      echo "If no options are provided, the script will prompt for profile selection."
+      cat <<EOF
+FirefoxPWA Cache Cleaner
+
+Usage: pwaclean [options]
+
+Options:
+  --all, -a        Clean all profiles
+  --yes, -y        Skip confirmation prompts
+  --yes-all, -ya   Clean all profiles without confirmation
+  --dry-run        Show actions without executing (no deletions)
+  --empty, -e      Delete empty profiles (no apps installed)
+  --help, -h       Show this help
+EOF
       exit 0
       ;;
-    *)
-      echo "⚠️ Unknown option: $arg"
-      exit 1
-      ;;
+    *) echo "⚠️ Unknown option: $arg"; exit 1 ;;
   esac
 done
 
-# Safety confirmation for --empty option (ALWAYS ask, ignore AUTO_CONFIRM)
-if $REMOVE_EMPTY; then
-  echo
-  echo "============================================================"
-  echo "⚠️   D A N G E R O U S   O P E R A T I O N"
-  echo "============================================================"
-  echo " You are using the '--empty' option."
-  echo
-  echo " This will:"
-  echo "   • Modify the configuration file:"
-  echo "       $CONFIG_FILE"
-  echo "   • Mark certain profiles as EMPTY (no apps installed)."
-  echo "   • This change CANNOT be undone automatically."
-  echo
-  echo " A backup will be created before changes (unless --dry-run)."
-  echo "============================================================"
-  echo
-  read -p "❓ Do you want to continue? (y/N): " CONFIRM
-  if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
-    echo "❌ Operation cancelled by user."
-    exit 0
-  fi
-  echo
-fi
-
-# Folders considered safe to clear inside each profile
-readonly CLEAN_DIRS=("cache2" "startupCache" "offlineCache" "jumpListCache" "minidumps" "saved-telemetry-pings" "datareporting")
-
-# Verify required files and tools
+# Environment checks
 if [ ! -d "$BASE_DIR" ]; then
   echo "❌ Profile directory not found: $BASE_DIR"
   exit 1
@@ -106,105 +69,201 @@ if [ ! -f "$CONFIG_FILE" ]; then
   echo "❌ config.json not found: $CONFIG_FILE"
   exit 1
 fi
-if ! command -v jq &> /dev/null; then
-  echo "❌ This script requires 'jq'."
-  echo "Install it with: sudo apt install jq"
-  exit 1
-fi
+command -v jq >/dev/null 2>&1 || { echo "❌ 'jq' is required. Install with: sudo apt install jq"; exit 1; }
+command -v firefoxpwa >/dev/null 2>&1 || { echo "❌ 'firefoxpwa' is required. Install it (e.g. pip install firefoxpwa)"; exit 1; }
+command -v numfmt >/dev/null 2>&1 || { echo "❌ 'numfmt' is required (coreutils)"; exit 1; }
 
-# --- WARNING + BACKUP when using --empty (modifies config.json) ---
+# Helper: humanize a byte size safely
+humanize_size() {
+  local bytes="$1"
+  if ! [[ "$bytes" =~ ^[0-9]+$ ]]; then
+    bytes=0
+  fi
+  numfmt --to=iec "$bytes" 2>/dev/null || echo "0"
+}
+
+# Process --empty: detect and optionally remove empty profiles
 if $REMOVE_EMPTY; then
-  if $DRY_RUN; then
-    echo "⚠️  --empty used together with --dry-run: no changes will be made to '$CONFIG_FILE'. No backup created."
-  else
-    echo "⚠️  WARNING: --empty will modify '$CONFIG_FILE' (profiles JSON). A backup will be created before changes."
-    BACKUP_FILE="${CONFIG_FILE}.bak_$(date +%F_%H-%M-%S)"
-    if cp "$CONFIG_FILE" "$BACKUP_FILE"; then
-      echo "📦 Backup created: $BACKUP_FILE"
+  echo "🔍 Scanning for empty profiles..."
+  EMPTY_PROFILES=()
+
+  # collect profile IDs from JSON excluding default
+  mapfile -t ALL_PROFILE_IDS < <(jq -r '.profiles | keys[] | select(. != "00000000000000000000000000")' "$CONFIG_FILE")
+
+  for ID in "${ALL_PROFILE_IDS[@]}"; do
+    NAME=$(jq -r --arg ulid "$ID" '.profiles[$ulid].name // ""' "$CONFIG_FILE")
+    APP_IDS=$(jq -r --arg ulid "$ID" '.profiles[$ulid].sites[]?' "$CONFIG_FILE")
+    PROFILE_PATH="$BASE_DIR/$ID"
+
+    # count apps robustly
+    if [ -z "$APP_IDS" ]; then
+      APP_COUNT=0
     else
-      echo "❌ Failed to create backup at '$BACKUP_FILE' — aborting to avoid data loss."
-      exit 1
+      APP_COUNT=$(printf '%s\n' "$APP_IDS" | grep -c .
+    )
+    fi
+
+    # empty if no apps AND (no folder OR folder empty)
+    if [ "$APP_COUNT" -eq 0 ] && { [ ! -d "$PROFILE_PATH" ] || [ -z "$(ls -A "$PROFILE_PATH" 2>/dev/null)" ]; }; then
+      EMPTY_PROFILES+=("$ID::$NAME")
+    fi
+  done
+
+  if [ ${#EMPTY_PROFILES[@]} -eq 0 ]; then
+    echo "ℹ️ No empty profiles found."
+  else
+    echo "📂 Found ${#EMPTY_PROFILES[@]} empty profile(s):"
+    for entry in "${EMPTY_PROFILES[@]}"; do
+      IFS="::" read -r ID NAME <<< "$entry"
+      echo " - $NAME ($ID)"
+    done
+    echo
+
+    # require confirmation unless auto-confirm
+    if ! $AUTO_CONFIRM; then
+      read -p "❓ Delete these profiles? (Y/n): " yn
+      yn="${yn:-y}"
+      echo
+      if [[ ! "$yn" =~ ^[Yy]$ ]]; then
+        echo "🚫 Skipping empty profile removal."
+      else
+        # perform deletions
+        for entry in "${EMPTY_PROFILES[@]}"; do
+          IFS="::" read -r ID NAME <<< "$entry"
+          if $DRY_RUN; then
+            echo "👀 Would delete profile: $NAME ($ID)"
+          else
+            if firefoxpwa profile remove "$ID"; then
+              echo "✅ Deleted profile: $NAME ($ID)"
+            else
+              echo "⚠️ Failed to delete profile: $NAME ($ID)"
+            fi
+          fi
+        done
+      fi
+    else
+      # auto-confirm path
+      for entry in "${EMPTY_PROFILES[@]}"; do
+        IFS="::" read -r ID NAME <<< "$entry"
+        if $DRY_RUN; then
+          echo "👀 Would delete profile: $NAME ($ID)"
+        else
+          if firefoxpwa profile remove "$ID"; then
+            echo "✅ Deleted profile: $NAME ($ID)"
+          else
+            echo "⚠️ Failed to delete profile: $NAME ($ID)"
+          fi
+        fi
+      done
     fi
   fi
-  echo
-fi
-# ----------------------------------------------------------------
 
+  echo
+  if ! $CLEAN_ALL && [ "$#" -eq 0 ] && [ "$DRY_RUN" = false ]; then
+    :
+  fi
+fi
+
+# Scan and collect profiles & their cache sizes
 echo "🔍 Scanning FirefoxPWA caches..."
 echo
 
-# Collect profile information
 declare -A PROFILE_IDS
 declare -A PROFILE_NAMES
 declare -A PROFILE_SIZES
 INDEX=1
 TOTAL_SIZE=0
 
-# Read profiles from config.son
 for PROFILE in "$BASE_DIR"/*; do
-  if [ -d "$PROFILE" ]; then
-    PROFILE_ID=$(basename "$PROFILE")
+  [ -d "$PROFILE" ] || continue
+  PROFILE_ID=$(basename "$PROFILE")
 
-    # Skip DEFAULT profile
-    if [ "$PROFILE_ID" = "00000000000000000000000000" ]; then
-      continue
-    fi
-
-    NAME=$(jq -r --arg ulid "$PROFILE_ID" '.profiles[$ulid].name // "(unnamed)"' "$CONFIG_FILE")
-
-    # Calculate total size of cache-related directories
-    SIZE=$(find "$PROFILE" -maxdepth 1 -type d \( \
-      -name "cache2" -o \
-      -name "startupCache" -o \
-      -name "offlineCache" -o \
-      -name "jumpListCache" -o \
-      -name "minidumps" -o \
-      -name "saved-telemetry-pings" -o \
-      -name "datareporting" \
-    \) -exec du -sb {} + 2>/dev/null | awk '{sum += $1} END {print sum}')
-
-    HUMAN_SIZE=$(numfmt --to=iec ${SIZE:-0})
-
-    APP_IDS=$(jq -r --arg ulid "$PROFILE_ID" '.profiles[$ulid].sites[]?' "$CONFIG_FILE")
-    APP_COUNT=$(echo "$APP_IDS" | wc -l)
-
-    PROFILE_IDS[$INDEX]="$PROFILE_ID"
-    PROFILE_NAMES[$INDEX]="$NAME"
-    PROFILE_SIZES[$INDEX]="$SIZE"
-
-    # Profile main line
-    echo "$INDEX) $NAME ($PROFILE_ID): $HUMAN_SIZE"
-
-    # Only show sub-apps if there is more than one
-    if [ "$APP_COUNT" -gt 1 ]; then
-      for APP_ID in $APP_IDS; do
-        APP_NAME=$(jq -r --arg id "$APP_ID" '.sites[$id].manifest.name // .sites[$id].config.name // "(unnamed)"' "$CONFIG_FILE")
-        echo "   - $APP_NAME"
-      done
-    fi
-
-    TOTAL_SIZE=$((TOTAL_SIZE + SIZE))
-    INDEX=$((INDEX + 1))
+  # Skip the default profile (never touch)
+  if [ "$PROFILE_ID" = "00000000000000000000000000" ]; then
+    continue
   fi
+
+  NAME=$(jq -r --arg ulid "$PROFILE_ID" '.profiles[$ulid].name // "(unnamed)"' "$CONFIG_FILE")
+
+  # Sum cache directory sizes (bytes) using CLEAN_DIRS
+  SIZE=0
+  for DIR in "${CLEAN_DIRS[@]}"; do
+    if [ -d "$PROFILE/$DIR" ]; then
+      DIR_SIZE=$(du -sb "$PROFILE/$DIR" 2>/dev/null | awk '{print $1}')
+      SIZE=$((SIZE + DIR_SIZE))
+    fi
+  done
+
+  # Ensure SIZE is numeric
+  [[ "$SIZE" =~ ^[0-9]+$ ]] || SIZE=0
+  HUMAN_SIZE=$(humanize_size "$SIZE")
+
+  # Count installed apps in profile
+  APP_IDS=$(jq -r --arg ulid "$PROFILE_ID" '.profiles[$ulid].sites[]?' "$CONFIG_FILE")
+  APP_COUNT=$(printf '%s\n' "$APP_IDS" | grep -c .)
+
+  # Offer to remove truly empty profiles
+  if [ "$SIZE" -eq 0 ] && [ "$APP_COUNT" -eq 0 ]; then
+    echo "⚠️ Profile '$NAME' ($PROFILE_ID) is empty (no apps, no cache)."
+    if ! $AUTO_CONFIRM; then
+      read -rp "Do you want to remove it now? [y/N]: " CONFIRM
+    else
+      CONFIRM="y"
+    fi
+    if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
+      if $DRY_RUN; then
+        echo "👀 Would remove profile: $NAME ($PROFILE_ID)"
+      else
+        if firefoxpwa profile remove "$PROFILE_ID"; then
+          echo "🗑️ Removed profile: $NAME ($PROFILE_ID)"
+        else
+          echo "⚠️ Failed to remove profile: $NAME ($PROFILE_ID)"
+        fi
+      fi
+    else
+      echo "Skipping removal of $NAME"
+    fi
+    continue
+  fi
+
+  # Store profile info for later cleaning
+  PROFILE_IDS[$INDEX]="$PROFILE_ID"
+  PROFILE_NAMES[$INDEX]="$NAME"
+  PROFILE_SIZES[$INDEX]="$SIZE"
+
+  # Print profile info
+  echo "$INDEX) $NAME ($PROFILE_ID): $HUMAN_SIZE"
+  if [ "$APP_COUNT" -gt 1 ]; then
+    for APP_ID in $APP_IDS; do
+      APP_NAME=$(jq -r --arg id "$APP_ID" '.sites[$id].manifest.name // .sites[$id].config.name // "(unnamed)"' "$CONFIG_FILE")
+      echo "   - $APP_NAME"
+    done
+  fi
+
+  TOTAL_SIZE=$((TOTAL_SIZE + SIZE))
+  INDEX=$((INDEX + 1))
 done
 
-HUMAN_TOTAL=$(numfmt --to=iec $TOTAL_SIZE)
+HUMAN_TOTAL=$(humanize_size "$TOTAL_SIZE")
 echo
 echo "📦 Total removable cache: $HUMAN_TOTAL"
 echo
 
-# Function to clean cache folders of a profile
+# Cleaning functions & confirmation
 clean_profile() {
   local PROFILE_PATH="$BASE_DIR/$1"
   for DIR_NAME in "${CLEAN_DIRS[@]}"; do
     DIR="$PROFILE_PATH/$DIR_NAME"
     if [ -d "$DIR" ]; then
-      rm -rf "$DIR"/*
+      if $DRY_RUN; then
+        echo "👀 Would remove all contents of: $DIR"
+      else
+        rm -rf "$DIR"/*
+      fi
     fi
   done
 }
 
-# Confirmation prompt for cleaning
 confirm_clean() {
   local NAME="$1"
   if $AUTO_CONFIRM; then
@@ -221,72 +280,14 @@ confirm_clean() {
   done
 }
 
-# If --empty is specified, process empty profiles first
-if $REMOVE_EMPTY; then
-  echo "🔍 Scanning for empty profiles (without installed apps)..."
-  echo
-  EMPTY_PROFILES=()
-
-  # Get all profile IDs from JSON, excluding the default profile
-  ALL_PROFILE_IDS=($(jq -r '.profiles | keys[] | select(. != "00000000000000000000000000")' "$CONFIG_FILE"))
-
-  for ID in "${ALL_PROFILE_IDS[@]}"; do
-    NAME=$(jq -r --arg ulid "$ID" '.profiles[$ulid].name' "$CONFIG_FILE")
-    APP_IDS=$(jq -r --arg ulid "$ID" '.profiles[$ulid].sites[]?' "$CONFIG_FILE")
-    PROFILE_PATH="$BASE_DIR/$ID"
-
-    # Check if no apps and (folder doesn't exist OR folder is empty)
-    if [ -z "$APP_IDS" ] && { [ ! -d "$PROFILE_PATH" ] || [ -z "$(ls -A "$PROFILE_PATH" 2>/dev/null)" ]; }; then
-      EMPTY_PROFILES+=("$ID::$NAME")
-    fi
-  done
-
-  if [ ${#EMPTY_PROFILES[@]} -eq 0 ]; then
-    echo "❌ No empty profiles found."
-    echo
-  else
-    echo "📂 Found ${#EMPTY_PROFILES[@]} empty profile(s):"
-    for entry in "${EMPTY_PROFILES[@]}"; do
-      IFS="::" read -r ID NAME <<< "$entry"
-      echo " - $NAME ($ID)"
-    done
-    echo
-
-    # Always ask unless user explicitly passed --yes
-    if ! $AUTO_CONFIRM; then
-      read -p "❓ Delete these profiles? (Y/n): " yn
-      yn="${yn:-y}"
-      echo
-      if [[ ! "$yn" =~ ^[Yy]$ ]]; then
-        echo "❌ Aborted empty profile removal."
-        echo
-        exit 0
-      fi
-    fi
-
-    for entry in "${EMPTY_PROFILES[@]}"; do
-      IFS="::" read -r ID NAME <<< "$entry"
-      if $DRY_RUN; then
-        echo "👀 Would delete profile: $NAME ($ID)"
-      else
-        rm -rf "$BASE_DIR/$ID"
-        echo "✅ Deleted profile directory (if existed): $NAME ($ID)"
-        tmpfile=$(mktemp)
-        jq "del(.profiles[\"$ID\"])" "$CONFIG_FILE" > "$tmpfile" && mv "$tmpfile" "$CONFIG_FILE"
-        echo "🗑️ Removed profile entry from config: $NAME ($ID)"
-      fi
-    done
-    echo
-  fi
-
-  # Exit after processing --empty, unless cleaning cache is also requested separately
-  [ "$CLEAN_ALL" = false ] && exit 0
-fi
-
-# Ask user to select profiles unless --all was passed
+# Ask which profiles to clean (unless --all)
 if $CLEAN_ALL; then
   SELECTION=("a")
 else
+  if [ "${#PROFILE_IDS[@]}" -eq 0 ]; then
+    echo "ℹ️ No profiles available to clean."
+    exit 0
+  fi
   read -p "Enter the numbers of the apps to clean (e.g. 1 3 5, 'a' for all, 'n' for none): " -a SELECTION
   echo
 fi
@@ -295,7 +296,6 @@ echo "🧹 Cleaning selected apps caches..."
 echo
 CLEARED=0
 
-# Process cleaning of cache based on selection
 if $CLEAN_ALL || [[ "${SELECTION[0]}" =~ ^(a|\*)$ ]]; then
   if ! $AUTO_CONFIRM; then
     read -p "❓ Do you want to clean *all* apps? (Y/n): " yn
@@ -343,6 +343,6 @@ else
   done
 fi
 
-HUMAN_CLEARED=$(numfmt --to=iec $CLEARED)
+HUMAN_CLEARED=$(humanize_size "$CLEARED")
 echo
 echo "✅ Total cache cleared: $HUMAN_CLEARED"
