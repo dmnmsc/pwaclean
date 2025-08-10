@@ -42,7 +42,7 @@
 ### Enhancements
 - Optimized cache size calculation using a single `find` per profile.
 - Added `--empty` / `-e` option to detect and remove empty profiles.
-- `config.json` backup: Auto-created before modifications; aborts if backup fails.
+- ~~- `config.json` backup: Auto-created before modifications; aborts if backup fails.~~
 - Streamlined terminal relaunch detection logic.
 - Minor prompt and output cleanup.
 
