@@ -1,4 +1,41 @@
-# Changelog
+## 📝 Changelog 
+
+## [v4] – 2025-08-10 (Refactor & safer profile deletion)
+### 🚀 Improvements
+
+* **Cleaner and more maintainable code**:
+  * Replaced redundant `find` usage with a direct loop over the `CLEAN_DIRS` array, ensuring consistency if new directories are added.
+  * Removed unnecessary `awk` calls and duplicated conditions.
+  * Changed profile removal from `rm -rf` to `firefoxpwa profile remove` for safer, tool-managed deletion.
+
+* **Better readability**:
+  * More concise and specific comments.
+  * Consistent block separation with clear section titles.
+
+* **More structured design**:
+  * Associative arrays (`PROFILE_IDS`, `PROFILE_NAMES`, `PROFILE_SIZES`) declared at the start for better data handling.
+  * Variables initialized at the beginning of their section.
+
+* **Simplified execution flow**:
+  * Shorter numeric validation (`[[ "$SIZE" =~ ^[0-9]+$ ]] || SIZE=0`).
+  * Simplified app counting without extra conditional checks.
+
+* **Maintained compatibility**:
+  * Preserves `AUTO_CONFIRM` and `DRY_RUN` handling.
+  * Keeps the same logic for removing empty profiles.
+
+### 🗑️ Removed
+* Duplicate cache size calculations (previously using both `find` and array iteration).
+* Redundant checks for application count.
+* Overly verbose or repetitive comments.
+
+### 📦 Result
+* Fewer lines of code, easier to read and maintain.
+* Safer profile deletion via `firefoxpwa profile remove`.
+* More predictable behavior if new cleanable directories are added.
+* Same overall functionality, but with faster and clearer execution.
+
+---
 
 ## [v3.1] – 2025-08-09 (Efficiency-Focused)
 
