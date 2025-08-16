@@ -1,6 +1,30 @@
 
 # 📝 Changelog
 
+## [Python v2.1] - 2025-08-16 (Message Logic & Help Menu Refinement)
+
+## ✅ **Fixed**
+
+- **Corrected misleading success message**  
+  Fixed a logical error where the script would print a `"cleaned"` message for a profile even when it was skipped due to a non-existent folder.  
+  Now, the script only prints a success message (`✔ ... cleaned`) if the cleaning operation was actually performed.
+
+- **Improved message logic in `remove_empty_profiles_mode`**  
+  The message `"No empty profiles found."` will now only be displayed when the script is run with the `-e` flag, providing better context and improving user experience.
+
+## 🚀 **Improvements**
+
+#### **Empty Profile Awareness**
+- Added a new section at the start of the script that warns users about **empty profiles**.
+- Suggests using the `-e` flag to remove them, offering a **clear call to action** and making the tool more intuitive.
+
+#### **Help Menu Enhancement**
+- Updated the help menu (`-h` flag) with:
+  - More **detailed descriptions** of command-line options.
+  - A **friendlier tone** and clearer guidance for new users.
+
+
+
 ## [Python v2] - 2025-08-16 (Enhanced Profile Handling & Path Validation)
 
 ### 🚀 Improvements
