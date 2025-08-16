@@ -20,8 +20,6 @@ CLEAN_DIRS = [
     "minidumps", "saved-telemetry-pings", "datareporting"
 ]
 
-_PAUSE_ENV = "PWA_PAUSE_ON_EXIT"
-
 BASE_DIR = Path.home() / ".local/share/firefoxpwa/profiles"
 CONFIG_FILE = Path.home() / ".local/share/firefoxpwa/config.json"
 
@@ -230,6 +228,7 @@ def _render_profiles(cfg: Dict, kept: List[Tuple[str, str, int, int, List[str]]]
 # -----------------------------------------------------------------------------
 # Clean profile cache
 # -----------------------------------------------------------------------------
+
 def clean_profile(profile_id: str) -> None:
     profile_path = BASE_DIR / profile_id
     if not profile_path.exists():
@@ -244,8 +243,9 @@ def clean_profile(profile_id: str) -> None:
                 print(f"⚠️ Failed to remove {dir_path}: {e}")
 
 # -----------------------------------------------------------------------------
-# Main
+# Main function definition
 # -----------------------------------------------------------------------------
+
 def main() -> None:
     global AUTO_CONFIRM, CLEAN_ALL, DRY_RUN, REMOVE_EMPTY, TABLE_MODE
 
@@ -264,16 +264,14 @@ def main() -> None:
     cfg = load_config()
     profiles = collect_profiles(cfg)
 
-    # Only one scanning message
     print("\n🔍 Scanning FirefoxPWA caches...\n")
 
-    # Show empty profiles if not removing
     if not REMOVE_EMPTY:
         empties = [(ulid, name) for ulid, name, size, apps, _ in profiles if size == 0 and apps == 0]
         for ulid, name in empties:
             print(f"⚠️  Empty profile detected: {name} ({ulid})\n❌  Not removed because -e not set\n")
         if empties:
-            print("─────────────────────────────\n")  # visual separator
+            print("─────────────────────────────\n")
 
     # Remove empty profiles if -e is set
     if REMOVE_EMPTY:
@@ -350,5 +348,42 @@ def main() -> None:
 
     print(f"\n✅ Total cache cleared: {humanize_size(cleared)}\n")
 
+
+# -----------------------------------------------------------------------------
+# Relaunch in terminal
+# -----------------------------------------------------------------------------
+
 if __name__ == "__main__":
+        if not sys.stdout.isatty():
+        script_path = os.path.abspath(__file__)
+        terminal_cmd = []
+
+        if sys.platform.startswith("win"):
+            base_exec_cmd = f"python \"{script_path}\" & pause > nul"
+            cmd_option = "/c"
+        else:
+            base_exec_cmd = f"python3 '{script_path}'; read -n 1 -s -r -p 'Press any key to exit.'"
+            cmd_option = "-c"
+
+        if sys.platform.startswith("win"):
+            terminal_cmd = ["cmd.exe", cmd_option, base_exec_cmd]
+        elif sys.platform == "darwin":
+            terminal_cmd = ["osascript", "-e", f'tell application "Terminal" to do script "{base_exec_cmd}"']
+        else:
+            if shutil.which("konsole"):
+                terminal_cmd = ["konsole", "-e", "bash", cmd_option, base_exec_cmd]
+            elif shutil.which("gnome-terminal"):
+                terminal_cmd = ["gnome-terminal", "--", "/bin/bash", cmd_option, base_exec_cmd]
+            elif shutil.which("xfce4-terminal"):
+                terminal_cmd = ["xfce4-terminal", "-e", "bash", cmd_option, base_exec_cmd]
+            elif shutil.which("xterm"):
+                terminal_cmd = ["xterm", "-e", "bash", cmd_option, base_exec_cmd]
+
+        if terminal_cmd:
+            subprocess.Popen(terminal_cmd)
+            sys.exit(0)
+        else:
+            print("Error: No compatible terminal emulator found.", file=sys.stderr)
+            sys.exit(1)
+
     main()
