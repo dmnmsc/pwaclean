@@ -1,6 +1,6 @@
 # 🧹 PWAclean
 
-**pwaclean** is a cross-platform command-line utility for [FirefoxPWA (PWAsForFirefox)](https://github.com/filips123/FirefoxPWA). Rewritten in Python, this project helps you scan, clean, and manage cache files from your Progressive Web App (PWA) profiles to reclaim disk space and keep your system running smoothly by removing unnecessary temporary data.
+**pwaclean** is a cross-platform command-line utility for [FirefoxPWA (PWAsForFirefox)](https://github.com/filips123/FirefoxPWA). Rewritten in Python, this project helps you scan, clean, and manage cache files from your Progressive Web App (PWA) profiles to reclaim disk space and keep your system running smoothly.
 
 
 ## 🌟 Key Features
