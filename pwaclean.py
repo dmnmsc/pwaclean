@@ -197,7 +197,6 @@ def remove_empty_profiles_mode(profiles, dry_run=False):
     empties = [(ulid, name) for ulid, name, size, apps, ids in profiles if size == 0 and apps == 0 and ulid != DEFAULT_PROFILE_ULID]
 
     if not empties:
-        print(" No empty profiles found.")
         return []
 
     print("\n Found", len(empties), "empty profile(s):")
@@ -281,12 +280,25 @@ def clean_profile(profile_id: str) -> None:
 # -----------------------------------------------------------------------------
 
 def main() -> None:
+    # Handle command-line arguments and initial configuration.
     global AUTO_CONFIRM, CLEAN_ALL, DRY_RUN, REMOVE_EMPTY, TABLE_MODE
 
     args = parse_args()
     if args.help:
-        print("Usage: pwaclean.py [--yes|-y] [--all|-a] [--yes-all|-ya|-ay] "
-              "[--dry-run] [--empty|-e] [--help|-h] [--table|-t]")
+        print("""
+Usage: pwaclean [options]
+
+FirefoxPWA Cache and Profile Cleaner.
+
+Options:
+  --yes, -y        Skip all confirmation prompts and automatically proceed.
+  --all, -a        Clean the cache for all profiles without individual selection.
+  --yes-all, -ya   Combines '--yes' and '--all' flags for a fully automated clean-up.
+  --dry-run        Simulate the cleaning process without deleting any files.
+  --empty, -e      Remove profiles that have no installed apps or cache.
+  --table, -t      Display profiles in a formatted table instead of a list.
+  --help, -h       Show this help message and exit.
+""")
         return
 
     AUTO_CONFIRM = bool(args.yes or args.yes_all or args.ay)
@@ -298,40 +310,48 @@ def main() -> None:
     cfg = load_config()
     profiles = collect_profiles(cfg)
 
-    print("\n🔍 Scanning FirefoxPWA caches...\n")
+    # Logic for the -e flag (exclusive empty profile management).
+    if REMOVE_EMPTY:
+        print("\n🔍 Scanning for empty profiles to remove...\n")
+        empties = [
+            (ulid, name) for ulid, name, size, apps, _ in profiles
+            if size == 0 and apps == 0 and ulid != DEFAULT_PROFILE_ULID
+        ]
+        if empties:
+            remove_empty_profiles_mode(profiles, DRY_RUN)
+        else:
+            print("ℹ️  No empty profiles found to remove.")
+        return
 
+    # Scan for all profiles and caches.
+    print("\n🔍 Scanning FirefoxPWA profiles and cache...\n")
+
+    # Warning if empty profiles are found but -e is not used.
     empties = [
         (ulid, name) for ulid, name, size, apps, _ in profiles
         if size == 0 and apps == 0 and ulid != DEFAULT_PROFILE_ULID
     ]
-
-    if not REMOVE_EMPTY and empties:
+    if empties:
+        print("⚠️  Empty profiles detected. Use '-e' to remove them:\n")
         for ulid, name in empties:
-            print(f"⚠️  Empty profile detected: {name} ({ulid})")
-            print("❌  Not removed because -e not set\n")
-        print("─────────────────────────────\n")
+            print(f" - {name} ({ulid})")
+        print("\n─────────────────────────────\n")
 
-    # Remove empty profiles if -e is set
-    if REMOVE_EMPTY:
-        profiles = remove_empty_profiles_mode(profiles, DRY_RUN)
-        print()
-
-    # Keep only profiles with cache/apps
+    # Logic for cleaning cache.
     kept: List[Tuple[str, str, int, int, List[str]]] = [
         (ulid, name, size, apps, app_ids)
         for ulid, name, size, apps, app_ids in profiles
-        if size > 0 or apps > 0
+        if size > 0 or apps > 0 or ulid == DEFAULT_PROFILE_ULID
     ]
-
     if not kept:
-        print("\nℹ️  No profiles available to clean.\n")
+        print("\nℹ️  No profiles found with cache or apps to clean.\n")
         return
 
-    # Render profiles table/list without printing scanning again
+    # Render profiles table/list.
     total_size, index_map = _render_profiles(cfg, kept, TABLE_MODE, header=False)
     print(f"\n📦 Total removable cache: {humanize_size(total_size)}\n")
 
-    # Selection & cleaning
+    # Handle user selection and cleaning process.
     selection = ["a"] if CLEAN_ALL else []
     if not selection:
         try:
@@ -358,7 +378,7 @@ def main() -> None:
                 cleared += size
                 print(f"✔ {name} cleaned")
     elif selection and selection[0].lower() == "n":
-        print("🚫 No apps selected.\nNothing was cleaned.\n")
+        print("🚫 No apps selected.\n\nNothing was cleaned.\n")
         return
     else:
         for tok in selection:
@@ -385,7 +405,6 @@ def main() -> None:
                 print(f"⏭ Skipped: {name}")
 
     print(f"\n✅ Total cache cleared: {humanize_size(cleared)}\n")
-
 
 # -----------------------------------------------------------------------------
 # Relaunch in terminal
