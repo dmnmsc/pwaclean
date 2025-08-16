@@ -132,7 +132,7 @@ Enter numbers to clean (e.g. 1 3 5, 'a' for all, 'n' for none): 1 3
 
 ## 📜 License
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+This project is licensed under the GNU GENERAL PUBLIC LICENSE. See the LICENSE file for details.
 
 ## 🙌 Credits
 
