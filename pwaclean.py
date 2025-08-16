@@ -14,14 +14,81 @@ from typing import Dict, List, Tuple
 # Config & defaults
 # -----------------------------------------------------------------------------
 
+# The ULID for the default FirefoxPWA profile. Do not change this value.
 DEFAULT_PROFILE_ULID = "00000000000000000000000000"
+
+# User can add, remove, or modify directories here to customize cleaning.
 CLEAN_DIRS = [
     "cache2", "startupCache", "offlineCache", "jumpListCache",
     "minidumps", "saved-telemetry-pings", "datareporting"
 ]
 
-BASE_DIR = Path.home() / ".local/share/firefoxpwa/profiles"
-CONFIG_FILE = Path.home() / ".local/share/firefoxpwa/config.json"
+# User can set custom paths here if autodetect fails or if installed elsewhere.
+CUSTOM_BASE_DIR = ""
+CUSTOM_CONFIG_FILE = ""
+
+# -----------------------------------------------------------------------------
+# Paths validation
+# -----------------------------------------------------------------------------
+
+# Helper function needed to validate profiles and other stuff
+def ask_yn(prompt: str, default_yes: bool = True) -> bool:
+    suffix = " (Y/n): " if default_yes else " (y/N): "
+    while True:
+        try:
+            ans = input(f"{prompt}{suffix}").strip().lower()
+        except EOFError:
+            return default_yes
+        if not ans:
+            return default_yes
+        if ans in {"y", "yes"}:
+            return True
+        if ans in {"n", "no"}:
+            return False
+        print("⚠️ Please answer y or n.")
+
+# Autodetect Paths
+def get_firefox_pwa_profiles_path() -> Path:
+    if sys.platform.startswith("win"):
+        return Path(os.environ.get("APPDATA", "")) / "firefoxpwa/profiles"
+    if sys.platform == "darwin":
+        return Path.home() / "Library/Application Support/firefoxpwa/profiles"
+    return Path.home() / ".local/share/firefoxpwa/profiles"
+
+def get_firefox_pwa_config_path() -> Path:
+    if sys.platform.startswith("win"):
+        return Path(os.environ.get("APPDATA", "")) / "firefoxpwa/config.json"
+    if sys.platform == "darwin":
+        return Path.home() / "Library/Application Support/firefoxpwa/config.json"
+    return Path.home() / ".local/share/firefoxpwa/config.json"
+
+# Validate custom BASE_DIR
+if CUSTOM_BASE_DIR:
+    custom_base_dir_path = Path(CUSTOM_BASE_DIR)
+    if custom_base_dir_path.exists():
+        BASE_DIR = custom_base_dir_path
+    else:
+        print(f"⚠️ Warning: The custom profiles directory does not exist: {CUSTOM_BASE_DIR}")
+        if ask_yn("❓ Do you want to use the default path instead?", default_yes=True):
+            BASE_DIR = get_firefox_pwa_profiles_path()
+        else:
+            sys.exit("❌ Operation cancelled by the user.")
+else:
+    BASE_DIR = get_firefox_pwa_profiles_path()
+
+# Validate custom CONFIG_FILE
+if CUSTOM_CONFIG_FILE:
+    custom_config_file_path = Path(CUSTOM_CONFIG_FILE)
+    if custom_config_file_path.exists():
+        CONFIG_FILE = custom_config_file_path
+    else:
+        print(f"⚠️ Warning: The custom config file does not exist: {CUSTOM_CONFIG_FILE}")
+        if ask_yn("❓ Do you want to use the default path instead?", default_yes=True):
+            CONFIG_FILE = get_firefox_pwa_config_path()
+        else:
+            sys.exit("❌ Operation cancelled by the user.")
+else:
+    CONFIG_FILE = get_firefox_pwa_config_path()
 
 AUTO_CONFIRM = CLEAN_ALL = DRY_RUN = REMOVE_EMPTY = TABLE_MODE = False
 
@@ -77,39 +144,6 @@ def firefoxpwa_remove_profile(ulid: str, name: str = "") -> str:
         print(f"⚠ Error removing {ulid}: {e}")
     return "failed"
 
-def get_firefox_pwa_profiles_path() -> Path:
-    if sys.platform.startswith("win"):
-        return Path(os.environ.get("LOCALAPPDATA", "")) / "firefoxpwa/profiles"
-    if sys.platform == "darwin":
-        return Path.home() / "Library/Application Support/firefoxpwa/profiles"
-    return Path.home() / ".local/share/firefoxpwa/profiles"
-
-def get_firefox_pwa_config_path() -> Path:
-    if sys.platform.startswith("win"):
-        return Path(os.environ.get("LOCALAPPDATA", "")) / "firefoxpwa/config.json"
-    if sys.platform == "darwin":
-        return Path.home() / "Library/Application Support/firefoxpwa/config.json"
-    return Path.home() / ".local/share/firefoxpwa/config.json"
-
-BASE_DIR = get_firefox_pwa_profiles_path()
-CONFIG_FILE = get_firefox_pwa_config_path()
-
-def ask_yn(prompt: str, default_yes: bool = True) -> bool:
-    """Prompt yes/no. ENTER returns default."""
-    suffix = " (Y/n): " if default_yes else " (y/N): "
-    while True:
-        try:
-            ans = input(f"{prompt}{suffix}").strip().lower()
-        except EOFError:
-            return default_yes
-        if not ans:
-            return default_yes
-        if ans in {"y", "yes"}:
-            return True
-        if ans in {"n", "no"}:
-            return False
-        print("⚠️ Please answer y or n.")
-
 # -----------------------------------------------------------------------------
 # Table formatting
 # -----------------------------------------------------------------------------
@@ -135,8 +169,6 @@ def collect_profiles(cfg: Dict) -> List[Tuple[str, str, int, int, List[str]]]:
     profiles = cfg.get("profiles") or {}
     out: List[Tuple[str, str, int, int, List[str]]] = []
     for pid, pdata in profiles.items():
-        if pid == DEFAULT_PROFILE_ULID:
-            continue
         sites = pdata.get("sites")
         app_ids = sites if isinstance(sites, list) else list(sites or [])
         out.append((pid, pdata.get("name", "(unnamed)"), _profile_size(pid), len(app_ids), app_ids))
@@ -160,8 +192,10 @@ def _is_dir_empty(path: Path) -> bool:
     except Exception:
         return True
 
+# Only remove profiles that are truly empty AND are not the default profile
 def remove_empty_profiles_mode(profiles, dry_run=False):
-    empties = [(ulid, name) for ulid, name, size, apps, ids in profiles if size == 0 and apps == 0]
+    empties = [(ulid, name) for ulid, name, size, apps, ids in profiles if size == 0 and apps == 0 and ulid != DEFAULT_PROFILE_ULID]
+
     if not empties:
         print(" No empty profiles found.")
         return []
@@ -266,12 +300,16 @@ def main() -> None:
 
     print("\n🔍 Scanning FirefoxPWA caches...\n")
 
-    if not REMOVE_EMPTY:
-        empties = [(ulid, name) for ulid, name, size, apps, _ in profiles if size == 0 and apps == 0]
+    empties = [
+        (ulid, name) for ulid, name, size, apps, _ in profiles
+        if size == 0 and apps == 0 and ulid != DEFAULT_PROFILE_ULID
+    ]
+
+    if not REMOVE_EMPTY and empties:
         for ulid, name in empties:
-            print(f"⚠️  Empty profile detected: {name} ({ulid})\n❌  Not removed because -e not set\n")
-        if empties:
-            print("─────────────────────────────\n")
+            print(f"⚠️  Empty profile detected: {name} ({ulid})")
+            print("❌  Not removed because -e not set\n")
+        print("─────────────────────────────\n")
 
     # Remove empty profiles if -e is set
     if REMOVE_EMPTY:
