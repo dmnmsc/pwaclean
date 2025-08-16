@@ -354,8 +354,8 @@ def main() -> None:
 # -----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-        if not sys.stdout.isatty():
-        script_path = os.path.abspath(__file__)
+    script_path = os.path.abspath(__file__)
+    if not sys.stdout.isatty():
         terminal_cmd = []
 
         if sys.platform.startswith("win"):
