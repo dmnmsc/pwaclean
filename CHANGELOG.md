@@ -23,7 +23,14 @@
   - More **detailed descriptions** of command-line options.
   - A **friendlier tone** and clearer guidance for new users.
 
+#### **Improved User Interface**
+- Includes a **table view option (`--table`)** for structured profile visualization.
+- Features **interactive prompts with confirmation** (`ask_yn`).
 
+#### **Terminal Relaunch Logic**
+- Adds logic to **relaunch the script in a terminal** on Windows, macOS, and Linux if executed from a GUI.
+
+---
 
 ## [Python v2] - 2025-08-16 (Enhanced Profile Handling & Path Validation)
 
@@ -81,7 +88,13 @@
   - **macOS**
   - **Linux**
     
-## [Bash v4] – 2025-08-10 (Refactor & safer profile deletion)
+## ⚠️ Deprecated: Bash Versions
+
+The Bash versions of this script (v1–v4) are now deprecated and no longer maintained.  
+Please use the Python version (`pwaclean.py`) for improved cross-platform support, safety, and performance.
+
+
+## ⚠️ [DEPRECATED Bash v4] – 2025-08-10 (Refactor & safer profile deletion) 
 ### 🚀 Improvements
 
 * **Cleaner and more maintainable code**:
@@ -118,7 +131,7 @@
 
 ---
 
-## [Bash v3.1] – 2025-08-09 (Efficiency-Focused)
+## ⚠️ [DEPRECATED Bash v3.1] – 2025-08-09 (Efficiency-Focused)
 
 ### Enhancements
 - Optimized cache size calculation using a single `find` per profile.
@@ -129,7 +142,7 @@
 
 ---
 
-## [Bash v2] – 2025-08-08
+## ⚠️ [DEPRECATED Bash v2] – 2025-08-08
 
 ### Enhancements
 - **Terminal relaunch improvement**: The terminal window now stays open after the script finishes, so the user can review the output before it closes.
@@ -144,19 +157,13 @@
 
 ---
 
-## [Bash v1] – 2025‑08‑07 *(initial release)*
+## ⚠️ [DEPRECATED Bash v1] – 2025‑08‑07 *(initial release)*
 - Base functionality:
   - Relaunches in a terminal if run non-interactively.
   - Scans FirefoxPWA profiles and lists cache folder sizes.
   - Deletes content from known cache directories.
   - Displays total cache size before and after cleaning.
 
----
 
-#### **Improved User Interface**
-- Includes a **table view option (`--table`)** for structured profile visualization.
-- Features **interactive prompts with confirmation** (`ask_yn`).
 
-#### **Terminal Relaunch Logic**
-- Adds logic to **relaunch the script in a terminal** on Windows, macOS, and Linux if executed from a GUI.
 
