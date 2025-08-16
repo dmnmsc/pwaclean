@@ -1,4 +1,18 @@
 #!/bin/bash
+#
+# This script has been replaced by the Python version.
+# Please use 'pwaclean.py' instead.
+#
+# Este script ha sido reemplazado por la versión de Python.
+# Por favor, usa 'pwaclean.py' en su lugar.
+#
+
+echo "--------------------------------------------------------" >&2
+echo "⚠️  NOTICE: This script (pwaclean.sh) is deprecated." >&2
+echo "   Please use the new Python version: pwaclean.py" >&2
+echo "--------------------------------------------------------" >&2
+
+exit 1
 
 set -u
 

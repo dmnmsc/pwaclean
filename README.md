@@ -1,103 +1,110 @@
 # 🧹 PWAclean
 
-**pwaclean** is a Bash script that **scans and cleans cache files** from [FirefoxPWA (PWAsForFirefox)](https://github.com/filips123/FirefoxPWA) profiles. It helps reclaim disk space by removing unnecessary cached data from Progressive Web Apps installed via FirefoxPWA.
+**pwaclean** is a cross-platform command-line utility for [FirefoxPWA (PWAsForFirefox)](https://github.com/filips123/FirefoxPWA). Rewritten in Python, this project helps you scan, clean, and manage cache files from your Progressive Web App (PWA) profiles to reclaim disk space and keep your system running smoothly.
 
----
 
-## 📂 What It Does
+## 🌟 Key Features
 
-- Detects all FirefoxPWA profiles on your system
-- Displays the name, size, and associated apps for each profile
-- Shows total potential space savings
-- Lets you interactively select which profiles to clean
-- Deletes the following folders:
-  - `cache2`
-  - `startupCache`
-  - `offlineCache`
-  - `jumpListCache`
-  - `minidumps`
-  - `saved-telemetry-pings`
-  - `datareporting`
+- **Cross-Platform Support**: Works seamlessly on Windows, macOS, and Linux, without relying on external Bash dependencies like `jq`.
+- **Intelligent Profile Scanning**: Detects and displays all FirefoxPWA profiles, showing the size of their cache and the associated apps.
+- **Interactive and Automated Cleaning**: Choose to clean specific profiles interactively or use command-line flags to clear all cache automatically.
+- **Empty Profile Management**: Safely identifies and allows you to remove profiles that no longer have installed apps or cached data, using the official `firefoxpwa` tool.
+- **Dry Run Mode (`--dry-run`)**: Simulates the cleanup process without deleting any files, so you can see what would be removed.
+- **Customizable Cleanup**: You can easily customize which directories are targeted for cleaning by editing the `CLEAN_DIRS` variable in the script.
 
----
+## ⚙️ Requirements
 
-## ⚙ Requirements
+- **Python 3.6+**: The script is written in Python and is platform-independent.
+- **FirefoxPWA**: The script requires Firefox PWA to be installed on your system.
 
-- Linux or WSL (Bash required)
-- [`jq`](https://stedolan.github.io/jq/) for JSON parsing
-- Standard Unix utilities: `du`, `awk`, and `numfmt` (usually preinstalled on most distros)
-- FirefoxPWA with default profile and config paths:
-  - `~/.local/share/firefoxpwa/profiles`
-  - `~/.local/share/firefoxpwa/config.json`
+## 🚀 Installation and Usage
 
----
+**pwaclean** is a single-file Python script that works on **Linux**, **Windows**, and **macOS**.
 
-## 📦 Installation
-
-Clone the repository:
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/dmnmsc/pwaclean.git
+git clone https://github.com/your-username/pwaclean.git
 cd pwaclean
 ```
 
-Make the script executable:
+### 2. Run the script
+
+You can run it directly with Python:
 
 ```bash
-chmod +x pwaclean.sh
+python pwaclean.py
 ```
 
-(Optional) Move it to a directory in your `$PATH`:
+Or make it executable (Linux/macOS):
 
-```
-sudo mv pwaclean.sh /usr/local/bin/pwaclean
-```
----
-
-## 🚀 Usage
-
-To run the script:
-
-```
-./pwaclean.sh
+```bash
+chmod +x pwaclean.py
+./pwaclean.py
 ```
 
-If installed globally:
+### 3. (Optional) Add to your PATH
 
-```
+For easier access on Linux/macOS:
+
+```bash
+sudo mv pwaclean.py /usr/local/bin/pwaclean
 pwaclean
 ```
 
+On Windows, you can:
 
-You can also use command-line options for automation or scripting:
+- Move `pwaclean.py` to a folder included in your system's PATH.
+- Optionally rename it to `pwaclean.py` or `pwaclean.exe` if bundled with `pyinstaller`.
 
-| Option         | Description                                           |
-|----------------|-------------------------------------------------------|
-| `--all`, `-a`  | Clean all profiles                                    |
-| `--yes`, `-y`  | Skip all confirmation prompts                         |
-| `--yes-all`    | Clean all profiles without prompts                    |
-| `-ya`, `-ay`   | Same as `--yes-all`                                   |
-| `--dry-run`    | Show what would be cleaned (no deletion)              |
-| `--empty`, `-e`| Detect and remove empty profiles (no apps installed)  |
-| `--help`, `-h` | Show usage instructions                               |
+> 💡 **Tip (Windows):** Use `python pwaclean.py` unless `.py` files are associated with Python in your system. You can check this by double-clicking the script — if it opens in Python, you're good to go.
 
----
 
-## ⌨️ Input Options
+### Command-Line Options
 
-When prompted:
+| Option      | Shorthand | Description                                      |
+|-------------|-----------|--------------------------------------------------|
+| `--yes`     | `-y`      | Skips all confirmation prompts.                  |
+| `--all`     | `-a`      | Cleans all profiles without needing to select.   |
+| `--yes-all` | `-ya`     | Combines `--yes` and `--all` for full automation.|
+| `--dry-run` |           | Simulates cleanup without deleting any files.    |
+| `--empty`   | `-e`      | Removes empty profiles (no apps or cache).       |
+| `--table`   | `-t`      | Displays profiles in a formatted table.          |
+| `--help`    | `-h`      | Shows the full help message.                     |
 
-- Enter numbers (e.g. `1 2 4`) to clean specific profiles
-- Enter `a` or `*` to clean **all** profiles
-- Enter `n` to do **nothing** and exit
+### Usage Examples
 
----
+Clear all cache automatically:
+
+```bash
+pwaclean --yes-all
+```
+
+Simulate removing empty profiles:
+
+```bash
+pwaclean --dry-run --empty
+```
+
+Display profiles in a table format:
+
+```bash
+pwaclean --table
+```
+
+## ⌨️ Interactive Prompts
+
+When prompted, you can enter:
+
+- Numbers (e.g., `1 2 4`) to clean specific profiles.
+- `a` or `*` to clean all profiles.
+- `n` to do nothing and exit.
 
 ## 🛠 Example Output
 ```bash
-$ ./pwaclean.sh
+$ ./pwaclean.py -y
 
-🔍 Scanning FirefoxPWA cache...
+🔍 Scanning FirefoxPWA profiles and cache...
 
 1) YouTube (K5G74N): 124M
 2) Twitter (F4D21P): 98M
@@ -106,52 +113,27 @@ $ ./pwaclean.sh
     - Trello
     - Notion
 
-📦 Total cache that can be cleared: 522M
+📦 Total removable cache: 522M
 
-Enter the numbers of the profiles to clean (e.g. 1 3 5, 'a' for all, 'n' for none): 1 3
+Enter numbers to clean (e.g. 1 3 5, 'a' for all, 'n' for none): 1 3
 
-🧹 Cleaning selected profile caches...
+🧹 Cleaning selected apps caches...
 ✔ YouTube cleaned
 ✔ Work Tools cleaned
 
 ✅ Total cache cleared: 424M
 ``` 
 
----
-
 ## ❗ Notes
 
-- Only **temporary/cache** files are removed unless **`--empty`** is used.  
-- App configuration, data, and profiles remain intact unless explicitly removed with **`--empty`**.  
+- **Cache vs. Data**: The script only removes temporary cache files. Your app configurations and data remain intact.
+- **`--empty` flag**: This is a specialized option for deleting profiles that have no apps or cache data. It does not perform cache cleaning.
+- **Profile Deletion**: Profile removal is handled directly by `firefoxpwa profile remove` for a safer and official method.
 
-> ⚠️ **IMPORTANT:**  
-> - **`--empty`** will also modify `config.json` to remove empty profiles.  
-> - Profile deletion is handled via **`firefoxpwa profile remove`**, not `rm -rf`, for safer, tool-managed removal.  
-> - You can safely clean and remove profiles using the **upstream FirefoxPWA tool** as well.  
+## 📜 License
 
-- When run in a **GUI terminal** (e.g., from a desktop launcher), the window will remain open after completion so you can review the output.  
-- **Use at your own risk** if modifying paths or options.  
-- **AGAIN:** Do not use `--empty` unless you know what you are doing.  
-
-
----
-
-## 📁 File Structure
-
-- `~/.local/share/firefoxpwa/profiles/` – Contains app profiles
-- `~/.local/share/firefoxpwa/config.json` – Metadata and app info
-
----
-
-## 📝 License
-
-This project is licensed under the **GNU General Public License v3.0**.  
-See the [LICENSE](LICENSE) file for details.
-
----
+This project is licensed under the MIT License. See the LICENSE file for details.
 
 ## 🙌 Credits
 
-Created by [dmnmsc](https://github.com/dmnmsc).  
-Feel free to open issues or contribute!
-
+Created by **dmnmsc**. Feel free to open issues or contribute!
