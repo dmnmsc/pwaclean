@@ -24,7 +24,7 @@
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/pwaclean.git
+git clone https://github.com/dmnmsc/pwaclean.git
 cd pwaclean
 ```
 
