@@ -164,11 +164,7 @@ def _print_table(headers: List[str], rows: List[List[str]]) -> None:
 # -----------------------------------------------------------------------------
 
 def _profile_size(profile_id: str) -> int:
-    profile_path = BASE_DIR / profile_id
-    total = sum(dir_size_bytes(profile_path / d) for d in CLEAN_DIRS)
-    for p in profile_path.glob("storage/default/*/cache/morgue"):
-        total += dir_size_bytes(p)
-    return total
+    return sum(dir_size_bytes(BASE_DIR / profile_id / d) for d in CLEAN_DIRS)
 
 def collect_profiles(cfg: Dict) -> List[Tuple[str, str, int, int, List[str]]]:
     profiles = cfg.get("profiles") or {}
@@ -278,13 +274,7 @@ def clean_profile(profile_id: str) -> None:
             try:
                 shutil.rmtree(dir_path)
             except Exception as e:
-                print(f"⚠ Failed to remove {dir_path}: {e}")
-    for dir_path in profile_path.glob("storage/default/*/cache/morgue"):
-        if dir_path.exists():
-            try:
-                shutil.rmtree(dir_path)
-            except Exception as e:
-                print(f"⚠ Failed to remove {dir_path}: {e}")
+                print(f"⚠️ Failed to remove {dir_path}: {e}")
 
 # -----------------------------------------------------------------------------
 # Main function definition
