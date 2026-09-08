@@ -20,8 +20,7 @@ DEFAULT_PROFILE_ULID = "00000000000000000000000000"
 # User can add, remove, or modify directories here to customize cleaning.
 CLEAN_DIRS = [
     "cache2", "startupCache", "offlineCache", "jumpListCache",
-    "minidumps", "saved-telemetry-pings", "datareporting",
-    "morgue"
+    "minidumps", "saved-telemetry-pings", "datareporting"
 ]
 
 # User can set custom paths here if autodetect fails or if installed elsewhere.
